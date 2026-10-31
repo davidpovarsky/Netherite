@@ -16,7 +16,8 @@ name: Release
 #   1.4.0    → version 1.4.0, build = latest on TestFlight + 1
 on:
   push:
-    tags: ["*"]
+    # Keep unsigned build tags from triggering the signed TestFlight release workflow.
+    tags: ["*", "!unsigned-ios-*"]
   workflow_dispatch:
     inputs:
       tag:
