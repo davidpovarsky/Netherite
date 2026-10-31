@@ -1,0 +1,58 @@
+name: Build unsigned iOS IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios:
+    name: Build iPhone and iPad IPA
+    runs-on: xcode-27
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: |
+          xcodebuild -version
+          xcodegen --version
+          xcodegen generate
+
+      - name: Build unsigned iOS device app
+        run: |
+          set -o pipefail
+          xcodebuild -project Netherite.xcodeproj \
+            -scheme Netherite \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -sdk iphoneos \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build
+
+      - name: Package unsigned IPA
+        run: |
+          APP="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/Netherite.app"
+          test -d "$APP"
+          mkdir -p "$RUNNER_TEMP/IPA/Payload"
+          ditto "$APP" "$RUNNER_TEMP/IPA/Payload/Netherite.app"
+          cd "$RUNNER_TEMP/IPA"
+          zip -qry "$GITHUB_WORKSPACE/Netherite-unsigned.ipa" Payload
+          unzip -t "$GITHUB_WORKSPACE/Netherite-unsigned.ipa" | tail -n 1
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Netherite-unsigned-IPA
+          path: Netherite-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
